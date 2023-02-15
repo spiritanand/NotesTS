@@ -1,5 +1,5 @@
 import "bootstrap/dist/css/bootstrap.min.css";
-import React from "react";
+import React, {useMemo} from "react";
 import {Container} from "react-bootstrap";
 import {
   createBrowserRouter,
@@ -8,6 +8,8 @@ import {
   Route,
   RouterProvider
 } from "react-router-dom";
+import {v4 as uuidV4} from "uuid";
+import {useLocalStorage} from "./hooks/useLocalStorage";
 import EditNote from "./pages/EditNote";
 import Home from "./pages/Home";
 import NewNote from "./pages/NewNote";
@@ -19,44 +21,86 @@ export interface Tag {
   label: string,
 }
 
+export interface RawNoteData {
+  title: string,
+  markdown: string,
+  tagIds: string[]
+}
+
+export interface RawNote
+  extends RawNoteData {
+  id: string;
+}
+
 export interface NoteData {
   title: string,
   markdown: string,
   tags: Tag[]
 }
 
-export interface Note
-  extends NoteData {
-  id: string,
-}
-
-const router = createBrowserRouter(createRoutesFromElements(
-  <Route path = "/"
-		 element = {<RootLayout></RootLayout>}
-  >
-	<Route index
-		   element = {<Home></Home>}
-	></Route>
-	<Route path = "/new-note"
-		   element = {<NewNote></NewNote>}
-	></Route>
-	<Route path = "/note/:id">
+const App = () => {
+  const [notes, setNotes] = useLocalStorage<RawNote[]>("NOTES", []);
+  const [tags, setTags] = useLocalStorage<Tag[]>("TAGS", []);
+  
+  const notesWithTags = useMemo(() => notes.map(note => (
+	{
+	  ...note,
+	  tags: tags.filter(tag => note.tagIds.includes(tag.id))
+	}
+  )), [
+	notes,
+	tags
+  ]);
+  
+  function handleCreateNote({
+							  tags,
+							  ...data
+							}: NoteData) {
+	setNotes(prevNotes => [
+	  ...prevNotes,
+	  {
+		...data,
+		id    : uuidV4(),
+		tagIds: tags.map(tag => tag.id)
+	  }
+	]);
+  }
+  
+  function handleAddTag(newTag: Tag) {
+	setTags(prevState => [
+	  ...prevState,
+	  newTag
+	]);
+  }
+  
+  const router = createBrowserRouter(createRoutesFromElements(
+	<Route path = "/"
+		   element = {<RootLayout></RootLayout>}
+	>
 	  <Route index
-			 element = {<ShowNote></ShowNote>}
+			 element = {<Home availableTags = {tags}
+							  notes = {notesWithTags}
+			 ></Home>}
 	  ></Route>
-	  <Route path = "edit"
-			 element = {<EditNote></EditNote>}
+	  <Route path = "/new-note"
+			 element = {<NewNote onAddTag = {handleAddTag}
+								 availableTags = {tags}
+								 onCreateNote = {handleCreateNote}
+			 ></NewNote>}
+	  ></Route>
+	  <Route path = "/note/:id">
+		<Route index
+			   element = {<ShowNote></ShowNote>}
+		></Route>
+		<Route path = "edit"
+			   element = {<EditNote></EditNote>}
+		></Route>
+	  </Route>
+	  <Route path = "*"
+			 element = {<Navigate to = "/"/>}
 	  ></Route>
 	</Route>
-	<Route path = "*"
-		   element = {<Navigate to = "/"/>}
-	></Route>
-  </Route>
-));
-
-const App = () => {
-  
-  
+  ));
   return (
 	<Container className = "my-4">
 	  <RouterProvider router = {router}></RouterProvider>

@@ -8,23 +8,35 @@ import {
   Col,
   Form,
   Row,
-  Stack
+  Stack,
 } from "react-bootstrap";
-import {Link} from "react-router-dom";
+import {
+  Link,
+  useNavigate
+} from "react-router-dom";
 import CreatableSelect from "react-select/creatable";
+import {v4 as uuidV4} from "uuid";
 import {
   NoteData,
   Tag
-} from "../../App";
+} from "../App";
 
 interface Props {
   onSubmit: (data: NoteData) => void;
+  onAddTag: (newTag: Tag) => void;
+  availableTags: Tag[];
 }
 
-const NoteForm = ({onSubmit}: Props) => {
+const NoteForm = ({
+					onSubmit,
+					onAddTag,
+					availableTags
+				  }: Props) => {
   const titleRef = useRef<HTMLInputElement>(null);
   const markdownRef = useRef<HTMLTextAreaElement>(null);
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+  
+  const navigate = useNavigate();
   
   function handleSubmit(e: FormEvent) {
 	e.preventDefault();
@@ -32,12 +44,17 @@ const NoteForm = ({onSubmit}: Props) => {
 	onSubmit({
 	  title   : titleRef.current!.value,
 	  markdown: markdownRef.current!.value,
-	  tags    : []
+	  tags    : selectedTags
 	});
+	
+	navigate("/");
   }
   
   return (
-	<Form>
+	<Form method = "post"
+		  action = "/new-note"
+		  onSubmit = {handleSubmit}
+	>
 	  <Stack gap = {4}>
 		<Row>
 		  <Col>
@@ -57,10 +74,28 @@ const NoteForm = ({onSubmit}: Props) => {
 				Tags
 			  </Form.Label>
 			  <CreatableSelect
+				onCreateOption = {label => {
+				  const newTag: Tag = {
+					id: uuidV4(),
+					label
+				  };
+				  onAddTag(newTag);
+				  setSelectedTags(prevState => [
+					...prevState,
+					newTag
+				  ]);
+				}
+				}
 				value = {selectedTags.map(tag => (
 				  {
 					label: tag.label,
 					value: tag.id,
+				  }
+				))}
+				options = {availableTags.map(tag => (
+				  {
+					label: tag.label,
+					value: tag.id
 				  }
 				))}
 				onChange = {tags => {
@@ -98,7 +133,7 @@ const NoteForm = ({onSubmit}: Props) => {
 		  <Button type = "submit"
 				  variant = "primary"
 		  >Save</Button>
-		  <Link to = "..">
+		  <Link to = "/">
 			<Button type = "button"
 					variant = "outline-secondary"
 			>Cancel</Button>
